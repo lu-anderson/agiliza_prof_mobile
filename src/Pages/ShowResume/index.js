@@ -61,7 +61,7 @@ const ShowResume = (props) => {
     }
 
     useEffect(() => {
-        console.log(diariesOfContent)
+        //console.log(diariesOfContent)
     }, [diariesOfContent])
 
     useEffect(() => {

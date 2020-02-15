@@ -21,7 +21,7 @@ const ChooseClass = (props) => {
 
             const classesInRealm = realm.objects('Classes')
 
-            console.log(classesInRealm)
+            //console.log(classesInRealm)
             let classes = []
 
             classesInRealm.map(classClass => {
@@ -31,7 +31,7 @@ const ChooseClass = (props) => {
                 })
             })
 
-            console.log(classes)
+            //console.log(classes)
             setClasses(classes)
         }
 

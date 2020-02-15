@@ -65,7 +65,6 @@ const ChooseWhatToDo = (props) => {
                             }
 
                             const resultado = realm.create('Classes', classe, 'modified')
-                            console.log(resultado)
                         }
                     })
                 }
