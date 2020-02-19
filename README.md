@@ -23,4 +23,4 @@ de diários (Lançamento de presença, conteúdo e avaliação)
 Considere deixar uma ⭐️ se este repositório te ajudou!
 
 ***
-_This README was generated with ❤️ by [readme-md-generator](https://github.com/kefranabg/readme-md-generator)_
+Entre em contato para saber mais!
