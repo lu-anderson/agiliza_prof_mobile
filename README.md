@@ -9,8 +9,15 @@ de diários (Lançamento de presença, conteúdo e avaliação)
 ### 🏠 [Homepage](https://github.com/lu-anderson/agiliza_prof_mobile)
 
 ### Screens
+> Login
 ![Login](https://github.com/lu-anderson/agiliza_prof_web/blob/master/Screenshot_1582111828.png)
 ## Author
+> Home
+![Home](https://github.com/lu-anderson/agiliza_prof_web/blob/master/Screenshot_1582111847.png)
+> Lançar Presença
+![Lançar Presença](https://github.com/lu-anderson/agiliza_prof_web/blob/master/Screenshot_1582111871.png)
+> Lançar Conteúdo
+![Lançar Conteúdo](https://github.com/lu-anderson/agiliza_prof_web/blob/master/Screenshot_1582111891.png)
 
 👤 **Luanderson Santos**
 
