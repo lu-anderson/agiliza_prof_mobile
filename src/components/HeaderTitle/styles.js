@@ -1,5 +1,7 @@
 import styled from 'styled-components/native';
 
+//Usando styled-components
+
 export const Container = styled.View`    
     margin-left: auto;
     margin-right: auto;

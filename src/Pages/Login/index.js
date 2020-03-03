@@ -53,12 +53,11 @@ const Login = props => {
 	async function submit(){
 		setLoading(true)
 		try {
-			const {data} = await api.post('/auth/authenticate', {
+			const {data} = await api.post('/auth', {
 				loginSigEduca: login,
-				senhaSigEduca: password
+				passwordSigEduca: password
 			})
-			console.log(data)
-			await saveUser(data.userId, data.userName, data.token)
+			await saveUser(data.token)
 			setLoading(false)
 			props.navigation.push('ChooseWhatToDo')	
 		} catch (error) {

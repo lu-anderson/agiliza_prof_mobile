@@ -21,7 +21,10 @@ export const View = styled.View`
 export const ContainerDiaries = styled.View`
     margin: 5px;
     padding: 5px;
-    border-left-width: 15px;
+    border-left-width: 10px;
+    border-bottom-left-radius: 5;
+    border-top-left-radius: 5;
+    
     border-left-color: ${props => props.color};
 ` 
 

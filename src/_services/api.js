@@ -11,10 +11,10 @@ import axios from 'axios'
 import {getToken} from './auth'
 
 
-const onLine =  'https://www.agilizaon.com.br'
-//const offLine = "http://192.168.43.226:3000/"
+//const onLine =  'https://www.agilizaon.com.br'
+const offLine = "http://192.168.43.226:3333/"
 const api = axios.create({
-    baseURL: onLine
+    baseURL: offLine
   })
 
   api.interceptors.request.use(async config => {

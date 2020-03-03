@@ -20,3 +20,9 @@ export const ContainerScroll = styled.ScrollView`
 export const Container = styled.View`
     flex: 1;
 `
+
+export const Loading = styled.ActivityIndicator.attrs({
+	color: '#dc3545'
+})`
+	margin-top: 10px;
+`

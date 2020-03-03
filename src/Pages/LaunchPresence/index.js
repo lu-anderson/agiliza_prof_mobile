@@ -1,5 +1,8 @@
 import React, {useEffect, useState} from 'react'
+import {useNetInfo} from "@react-native-community/netinfo"
 import Icon from 'react-native-vector-icons/FontAwesome'
+
+import api from '../../_services/api'
 
 import { FlatList, BackHandler, ActivityIndicator } from 'react-native';
 import Button from './Button'
@@ -136,22 +139,25 @@ const Item = React.memo(function Item({numberOfCheckbox, name, idStudent, number
 
 
 
-const LaunchPresence = (props) => {  
+const LaunchPresence = (props) => { 
+    const netInfo = useNetInfo();  
     const idClass = props.navigation.getParam('classId')
     const workload =props.navigation.getParam('workload') 
     const today = new Date
 
     const [students, setStudents] = useState([])
 
+    const [update, setUpdate] = useState(false)
+
     const [textClassDisplay, setTextClassDisplay] = useState('')
 
     const [diaries, setDiaries] = useState([])
 
     useEffect(() => {
-        console.log('use diaries')
     }, [diaries])
 
     const [loading, setLoading] = useState(true)
+    const [loadingFinish, setLoadingFinish] = useState(false)
 
     const [date, setDate] = useState(new Date(today.getFullYear(), today.getMonth(), today.getDate())) 
     
@@ -171,7 +177,17 @@ const LaunchPresence = (props) => {
         }else{
             return diaries[existDiary].students
         }
-    }   
+    }
+    
+    function setNeededUpdate(diaries, date){
+        const existDiary = diaries.findIndex(diary => diary.date.getTime() === date.getTime())
+        console.log(existDiary)
+        if(existDiary !== -1){
+            setUpdate(true)
+        }else{
+            setUpdate(false)
+        }
+    }
     
     function verifyIfContentIsLaunched(diariesOfContent, date){
         const existDiaryOfContent = diariesOfContent.findIndex(diary => diary.date.getTime() === date.getTime())
@@ -221,10 +237,12 @@ const LaunchPresence = (props) => {
 
                 const students = getStudentsForLaunchPresence(diariesWithDateObject, date, JSON.parse(classClass.students))
 
+                setNeededUpdate(diariesWithDateObject, date)
+
                 setDiaries(diariesWithDateObject)
                 setStudents(markPresenceToAllStudents(students, workload))
-                setLoading(false)
                 setTextClassDisplay(classClass.displayText) 
+                setLoading(false)              
                 
                 realm.close()
                 
@@ -238,8 +256,7 @@ const LaunchPresence = (props) => {
 
     }, [date])
 
-    useEffect(() => {        
-
+    useEffect(() => {    
         BackHandler.addEventListener('hardwareBackPress', onBackPress)
         return () => {
             BackHandler.removeEventListener('hardwareBackPress', onBackPress)
@@ -292,7 +309,10 @@ const LaunchPresence = (props) => {
         if(indexDiary !== -1){
             return diaries.map((diary, index) => {
                 if(index === indexDiary){
-                    return newDiary
+                    return {
+                        ...newDiary,
+                        update: true
+                    }
                 }else{
                     return diary
                 }
@@ -326,17 +346,33 @@ const LaunchPresence = (props) => {
         }        
     }
 
-    async function finalizarLancarPresenca(){
+    async function finishLaunchPresence(){
+        setLoadingFinish(true)
         const diary = {
             date,
 			students,
             workload,
-            status: 'savedInRealm'
+            status: netInfo.isInternetReachable ? 'savedInMongo': 'savedInRealm',
+            update
         }
 
+        console.log(diary)
+
+        if(netInfo.isInternetReachable){
+            if(update){
+                console.log('Deve Atualizar')
+            }else{
+                await api.post('/diaries', {
+                    diariesForStore: [{
+                        classId: idClass,
+                        diaries: [diary]
+                    }]
+                })
+            }
+        }
         //Verificar se esta online e então mandar uma requisição para salvar online
         await saveDiaryInRealm(JSON.parse(JSON.stringify(diary)), idClass)
-        await props.navigation.navigate('ChooseWhatToDo', {saved: 'savedInRealm', id: Math.random()})
+        await props.navigation.navigate('ChooseWhatToDo', {saved: netInfo.isInternetReachable ? 'savedInMongo': 'savedInRealm', id: Math.random()})
     }
 
 
@@ -379,7 +415,7 @@ const LaunchPresence = (props) => {
     async function responseModalBack(response){ 
         if(response === 'save'){
             setShowModalBackHandler(false)
-            await finalizarLancarPresenca()
+            await finishLaunchPresence()
         }
         
         if(response === 'no'){
@@ -460,15 +496,19 @@ const LaunchPresence = (props) => {
                 >
                     Lançar Conteúdo
                 </Button>
-                <Button 
-                    size="medium" 
-                    color={colors.primary} 
-                    textColor="#FFF" 
-                    onClick={async () => await finalizarLancarPresenca()}
-                    disabled={loading}
-                >
-                    Finalizar
-                </Button>
+                {loadingFinish ?
+                    <ActivityIndicator size="large" color="#007bff"/>
+                    :
+                    <Button 
+                        size="medium" 
+                        color={colors.primary} 
+                        textColor="#FFF" 
+                        onClick={async () => await finishLaunchPresence()}
+                        disabled={loading}
+                    >
+                        Finalizar
+                    </Button>
+                }
             </ContainerBtns> 
             <ModalLaunchContent 
                 visible={showModalLaunchContent}

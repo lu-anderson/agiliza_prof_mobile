@@ -127,7 +127,7 @@ const ShowResume = (props) => {
             {diaries.map(diary => {
                 return (
                     <React.Fragment key={diary.date}>
-                        <ContainerDiaries color={colors.sucess}>
+                        <ContainerDiaries color={setColorStatus(diary.status)}>
                             <DateText>{util.setDateObjectToDateStringWithWeekDay(diary.date)}</DateText>                        
                         </ContainerDiaries>
                         <Line />

@@ -6,6 +6,8 @@ const diaries = [
                 id: String,
                 name: String
             }
-        ]
+        ],
+        status: "savedInRealm"||"savedInMongo"||"savedInSigEduca",
+        update: false,
     }
 ]

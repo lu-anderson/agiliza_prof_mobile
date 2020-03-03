@@ -1,3 +1,5 @@
+import jwtDecode  from 'jwt-decode'
+
 import getRealm from '../offline/realm'
 
 
@@ -16,13 +18,14 @@ export async function getToken(){
     
 }
 
-export async function saveUser(userId, userName, token){
+export async function saveUser(tokenJwt){
+    const decodedJwt = jwtDecode(tokenJwt)
     const realm = await getRealm()
 
     const user = {
-        id: userId,
-        name: userName,
-        token
+        id: decodedJwt.userId,
+        name: decodedJwt.userName,
+        token: tokenJwt
     }
 
     realm.write(() => {
