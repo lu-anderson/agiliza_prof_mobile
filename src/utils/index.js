@@ -31,3 +31,28 @@ export function updateItemInArray(originalArray, itemToUpdate, index){
         }
     })
 }
+
+import {useNetInfo} from "@react-native-community/netinfo"
+
+export async function apiAvailable(){
+    const netInfo = useNetInfo()
+
+    let available = false
+
+    try {
+        if(netInfo.isInternetReachable){
+            const {data} = await api.get('/')
+            console.log(data.OK)
+            if (data.OK){
+                available = true
+            }
+        }
+    } catch (error) {
+        available = false
+        console.log('Erro in connect api')
+        console.log(error)
+    }finally{
+        return available
+    }
+
+}

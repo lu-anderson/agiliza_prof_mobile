@@ -4,11 +4,16 @@ import Icon from 'react-native-vector-icons/FontAwesome'
 
 import api from '../../_services/api'
 
+import getRealm from '../../offline/realm'
+
+import * as util from '../../utils'
+
 import { FlatList, BackHandler, ActivityIndicator } from 'react-native';
 import Button from './Button'
 import ModalLaunchContent from './ModalLaunchContent'
 import ModalBackHandler from './ModalBackHandler'
 import ModalSelectDate from './ModalSelectDate'
+
 import colors from '../colors'
 
 import { 
@@ -25,9 +30,6 @@ import {
 } from './styles'
 import CheckBox from './Checkbox'
 
-import getRealm from '../../offline/realm'
-
-import * as util from '../../utils'
 
 const CheckBoxs = ({checkes, togglePresence}) => {
     if(checkes !== undefined){
@@ -139,8 +141,8 @@ const Item = React.memo(function Item({numberOfCheckbox, name, idStudent, number
 
 
 
-const LaunchPresence = (props) => { 
-    const netInfo = useNetInfo();  
+const LaunchPresence = (props) => {  
+    const netInfo = useNetInfo();
     const idClass = props.navigation.getParam('classId')
     const workload =props.navigation.getParam('workload') 
     const today = new Date
@@ -153,8 +155,7 @@ const LaunchPresence = (props) => {
 
     const [diaries, setDiaries] = useState([])
 
-    useEffect(() => {
-    }, [diaries])
+   
 
     const [loading, setLoading] = useState(true)
     const [loadingFinish, setLoadingFinish] = useState(false)
@@ -181,7 +182,6 @@ const LaunchPresence = (props) => {
     
     function setNeededUpdate(diaries, date){
         const existDiary = diaries.findIndex(diary => diary.date.getTime() === date.getTime())
-        console.log(existDiary)
         if(existDiary !== -1){
             setUpdate(true)
         }else{
@@ -247,6 +247,7 @@ const LaunchPresence = (props) => {
                 realm.close()
                 
             } catch (error) {
+                console.log('Erro in getDataInRealm')
                 console.log(error)
             }            
         }
@@ -322,91 +323,179 @@ const LaunchPresence = (props) => {
         }
     }
     
-    async function saveDiaryInRealm(diary, idClass){
+    async function saveDiaryInRealm(status){
         try {
+            const diary = {
+                date,
+                students,
+                workload,
+                status,
+                update
+            }
+
             const realm = await getRealm()
     
             const classe = realm.objectForPrimaryKey('Classes', idClass)	
             
             const diaries = JSON.parse(classe.diaries)
         
-            const newDiaries = saveDiary(diaries, diary)
+            const newDiaries = saveDiary(diaries, JSON.parse(JSON.stringify(diary)))
         
             realm.write(() => {
                 classe.diaries = JSON.stringify(newDiaries)
             })
-            //realm.close()
             
         } catch (error) {
             console.log('Erro in saveDiaryInRealm')
-            console.log('Parans')
-            console.log('diary', diary)
-            console.log('idClass', idClass)
             console.log(error)
         }        
     }
 
+    async function verifyIfApiAvailable(){
+
+        try {
+            if(netInfo.isInternetReachable){
+                const {data} = await api.get('/')
+                if (data.OK){
+                    console.log('Api avaliable')
+                    return true
+                }else{
+                    console.log('User offline')
+                    return false
+                } 
+            }           
+        } catch (error) {
+            console.log('Api not avaliable')
+            return false
+        }        
+    }
+
     async function finishLaunchPresence(){
-        setLoadingFinish(true)
-        const diary = {
-            date,
-			students,
-            workload,
-            status: netInfo.isInternetReachable ? 'savedInMongo': 'savedInRealm',
-            update
-        }
+        try {
+            setLoadingFinish(true)           
 
-        console.log(diary)
+            let apiAvailable = await verifyIfApiAvailable()        
 
-        if(netInfo.isInternetReachable){
-            if(update){
-                console.log('Deve Atualizar')
-            }else{
-                await api.post('/diaries', {
-                    diariesForStore: [{
-                        classId: idClass,
-                        diaries: [diary]
-                    }]
-                })
+            
+            try {
+                if(apiAvailable){
+                    console.log('Saving in mongo the data')
+                    if(update){
+                        console.log('update diary in mongo')
+                        await api.put('/diaries', {
+                            diariesForUpdate: [{
+                                classId: idClass,
+                                diaries: [{
+                                    date,
+                                    students,
+                                    workload,
+                                    status: 'savedInMongo',
+                                    update
+                                }]
+                            }]
+                        })
+                    }else{
+                        console.log('store diary in mongo')
+                        await api.post('/diaries', {
+                            diariesForStore: [{
+                                classId: idClass,
+                                diaries: [{
+                                    date,
+                                    students,
+                                    workload,
+                                    status: 'savedInMongo',
+                                    update
+                                }]
+                            }]
+                        })
+                    }
+                    await saveDiaryInRealm('savedInMongo') 
+                    await props.navigation.navigate('ChooseWhatToDo', {saved:'savedInMongo', id: Math.random()})
+                }else{
+                    await saveDiaryInRealm('savedInRealm') 
+                    await props.navigation.navigate('ChooseWhatToDo', {saved:'savedInRealm', id: Math.random()})
+                }                
+            } catch (error) {
+                await saveDiaryInRealm('savedInRealm')
+                await props.navigation.navigate('ChooseWhatToDo', {saved:'savedInRealm', id: Math.random()})
+                console.log('Error in save diary in mongo')
+                console.log(error)
             }
+            
+           
+        } catch (error) {
+            console.log('Erro in finishLaunchPresence')
+            console.log(error)
+        }            
+    }
+
+
+    async function saveDiaryOfContentInRealm(status){        
+        try {
+            const newDiariesOfContent = [{
+                date,
+                content,
+                status
+            }]
+
+            const realm = await getRealm()
+            const classe = realm.objectForPrimaryKey('Classes', idClass)
+
+            const diariesOfContentInRealm = JSON.parse(classe.diariesOfContent)
+
+            const diariesOfContent = [...diariesOfContentInRealm, ...newDiariesOfContent]
+        
+            realm.write(() => {
+                classe.diariesOfContent = JSON.stringify(diariesOfContent)
+            })
+        } catch (error) {
+            console.log('Error in saveDiaryOfContentInRealm')
+            console.log(error)
         }
-        //Verificar se esta online e então mandar uma requisição para salvar online
-        await saveDiaryInRealm(JSON.parse(JSON.stringify(diary)), idClass)
-        await props.navigation.navigate('ChooseWhatToDo', {saved: netInfo.isInternetReachable ? 'savedInMongo': 'savedInRealm', id: Math.random()})
+        
+    }
+
+    async function finishLaunchContent(){ 
+        try {
+            const apiAvailable = await verifyIfApiAvailable() 
+
+            if(apiAvailable){
+                console.log('Saving in mongo the data')
+                await api.post('/diariesOfContents', {
+                    diariesOfContentsForStore: [{
+                        classId: idClass,
+                        diariesOfContents: [{
+                            date, 
+                            content,
+                            status: 'savedInMongo'
+                        }]
+                    }]
+                }) 
+                saveDiaryOfContentInRealm('savedInMongo')
+            }else{
+                saveDiaryOfContentInRealm('savedInRealm')
+            }             
+        } catch (error) {
+            saveDiaryOfContentInRealm('savedInRealm')
+            console.log('Error in save diaryOfContent in mongo')
+            console.log(error)
+        }
     }
 
 
-    async function addDiaryOfContentInRealm(newDiariesOfContent, idClass){
-        const realm = await getRealm()
-        console.log('addDiaryOfContentInRealm')
-        const classe = realm.objectForPrimaryKey('Classes', idClass)
-
-        const diariesOfContentInRealm = JSON.parse(classe.diariesOfContent)
-
-        const diariesOfContent = [...diariesOfContentInRealm, ...newDiariesOfContent]
-    
-        realm.write(() => {
-            classe.diariesOfContent = JSON.stringify(diariesOfContent)
-        })
-
-        realm.close()
-    }
-
-
-    function responseModalContent(response){
-        const newDiariesOfContent = [{
-            date,
-            content,
-            status: "savedInRealm"
-        }]
+    async function responseModalContent(response){  
         switch (response) {
             case 'save':
-                addDiaryOfContentInRealm(newDiariesOfContent, idClass)
+                setShowModalLaunchContent(false)
                 setBlockBtnContent(true)
+                await finishLaunchContent()
+                break;
             case 'cancel':
                 setShowModalLaunchContent(false)
+                break;
             case 'close':
                 setShowModalLaunchContent(false)
+                break;
             default:
                 break;
         }
@@ -442,6 +531,10 @@ const LaunchPresence = (props) => {
         setDate(date)
         setShowModalSelectDate(false)
     }
+
+    useEffect(() => {
+        console.log(showModalLaunchContent)
+    }, [showModalLaunchContent])
     
 
 
@@ -492,7 +585,7 @@ const LaunchPresence = (props) => {
                     color={`${blockBtnContent ? colors.sucess: colors.primary}`} 
                     textColor="#FFF" 
                     onClick={() => setShowModalLaunchContent(true)}
-                    disabled={blockBtnContent || loading}
+                    disabled={blockBtnContent || loading || loadingFinish}
                 >
                     Lançar Conteúdo
                 </Button>
