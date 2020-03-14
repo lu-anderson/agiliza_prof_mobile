@@ -2,6 +2,8 @@ import React, {useRef, useEffect, useState} from 'react'
 import BackgroundFetch from "react-native-background-fetch"
 import {useNetInfo} from "@react-native-community/netinfo"
 
+import Sync from '../../utils/Sync'
+
 import Toast from 'react-native-easy-toast';
 
 import {HeaderText} from '../globalStyles'
@@ -24,15 +26,35 @@ function setColorStatus(status){
 	}
 }
 
+let MyHeadlessTask = async (event) => {
+    // Get task id from event {}:
+    let taskId = event.taskId;
+    console.log('[BackgroundFetch HeadlessTask] start: ', taskId);
+  
+    // Perform an example HTTP request.
+    // Important:  await asychronous tasks when using HeadlessJS.
+    await Sync()
+    console.log('[BackgroundFetch HeadlessTask]');
+    console.log('DEU CERTOOOOOOOOOOOOOOOO')
+  
+    // Required:  Signal to native code that your task is complete.
+    // If you don't do this, your app could be terminated and/or assigned
+    // battery-blame for consuming too much time in background.
+    BackgroundFetch.finish(taskId);
+  }
+  
+  // Register your BackgroundFetch HeadlessTask
+BackgroundFetch.registerHeadlessTask(MyHeadlessTask);
 
 const ChooseWhatToDo = (props) => {
-    const netInfo = useNetInfo();   
+    const netInfo = useNetInfo()  
     const toastRef = useRef() 
     let saved = props.navigation.getParam('saved')   
     let idParam = props.navigation.getParam('id')
     
     const [user, setUser] = useState("")
     const [loading, setLoading] = useState(false)
+    const [isInternet, setIsInternet] = useState(true)
 
     useEffect(() => {
         setLoading(true)
@@ -43,12 +65,16 @@ const ChooseWhatToDo = (props) => {
             forceAlarmManager: false,     // <-- Set true to bypass JobScheduler.
             stopOnTerminate: false,
             startOnBoot: true,
+            enableHeadless: true,
             requiredNetworkType: BackgroundFetch.NETWORK_TYPE_ANY, // Default           
           }, async (taskId) => {
             console.log(taskId)
             console.log('Luanderson task')
             console.log(new Date())
             console.log("[js] Received background-fetch event: ", taskId);
+            console.log('Call sync data')
+            await Sync()
+            console.log('after call sync data')
             // Required: Signal completion of your task to native code
             // If you fail to do this, the OS can terminate your app
             // or assign battery-blame for consuming too much background-time
@@ -59,8 +85,8 @@ const ChooseWhatToDo = (props) => {
 
         
 
-        (async function getClassesInApi(){
-            try {
+        (async function getClassesInApi(){            
+            try {               
                 const realm = await getRealm()
                 const userInRealm = realm.objects('User')
                 setUser(userInRealm[0].name)
@@ -88,11 +114,8 @@ const ChooseWhatToDo = (props) => {
             }            
         })();
         
-        (async function callSyncData(){
-            let apiAvailable = await verifyIfApiAvailable()
-            if(apiAvailable){                
-                await syncData()  
-            }            
+        (async function callSyncData(){           
+            await Sync()            
         })();
 
         setTimeout(() => {
@@ -101,6 +124,8 @@ const ChooseWhatToDo = (props) => {
         console.log('Montou')
         console.log(new Date())
     }, [])    
+
+    
 
     useEffect(() => {
         if(saved === 'savedInRealm'){
@@ -122,249 +147,17 @@ const ChooseWhatToDo = (props) => {
         }        
     },[idParam]) 
 
-    async function verifyIfApiAvailable(){
-        try {
-            const {data} = await api.get('/')
-            if (data.OK){
-                console.log('Api avaliable')
-                return true
-            }
-        } catch (error) {
-            console.log('Api not avaliable')
-            return false
-        }        
-    }
-
-    async function getDiariesForSaveInMongo(){
-        const realm = await getRealm()
-        
-        const classesInRealm = realm.objects('Classes')
-
-        let diariesForSaveInMongo = []
-
-        classesInRealm.map(classe => {             
-            const diariesInRealm = JSON.parse(classe.diaries)
-
-            let diaries = []
-            diariesInRealm.map(diary => {                    
-                if(diary.status === 'savedInRealm'){
-                    diaries.push({
-                        ...diary, status: 'savedInMongo'                            
-                    })
-                }
-            })
-
-            if(diaries.length !== 0){
-                diariesForSaveInMongo.push({
-                    classId: classe.id,
-                    diaries
-                })
-            }               
-        })
-        return diariesForSaveInMongo        
-    }
-
-    async function getDiariesOfContentsForSaveInMongo(){
-        const realm = await getRealm()
-        
-        const classesInRealm = realm.objects('Classes')
-
-        let diariesOfContentsForSaveInMongo = []
-
-        classesInRealm.map(classe => {     
-            const diariesOfContentsInRealm = JSON.parse(classe.diariesOfContent)
-
-            let diariesOfContents = []
-            diariesOfContentsInRealm.map(diary => {                    
-                if(diary.status === 'savedInRealm'){
-                    diariesOfContents.push({
-                        ...diary, status: 'savedInMongo'                            
-                    })
-                }
-            })
-
-            if(diariesOfContents.length !== 0){
-                diariesOfContentsForSaveInMongo.push({
-                    classId: classe.id,
-                    diariesOfContents
-                })
-            }               
-        })
-        return diariesOfContentsForSaveInMongo        
-    }
-    
-    async function storeDiariesInMongo(diariesForStore){
-        try {
-            //VERIFICAR SE PRECISA ATUALIZAR OU ARMAZENAR UM NOVO DIÁRIO
-                       
-            const {data} = await api.post('/diaries', {
-                diariesForStore
-            })
-            return data.msg
-        } catch (error) {
-            console.log('Error')
-            console.log(error.response.data)
-        }        
-    }
-
-    async function storeDiariesOfContentsInMongo(diariesOfContentsForStore){
-        try {
-            //VERIFICAR SE PRECISA ATUALIZAR OU ARMAZENAR UM NOVO DIÁRIO  
-            const {data} = await api.post('/diariesOfContents', {
-                diariesOfContentsForStore
-            })
-            return data
-        } catch (error) {
-            console.log('Error')
-            console.log(error.response.data)
-        }        
-    }
-
-    async function updateStatusOfDiariesInRealm(classesWithDiariesForUpdate, status, finished){
-        try {
-            const realm = await getRealm()     
-
-            const classesInRealm = realm.objects('Classes')    
-
-            classesWithDiariesForUpdate.map(classe => {                    
-                const indexOfClass = classesInRealm.findIndex(val => val.id === classe.classId)                
-                const diariesInRealm = JSON.parse(classesInRealm[indexOfClass].diaries)
-               
-                classe.diaries.map(diary => {
-                    const indexOfDiary = diariesInRealm.findIndex(val => val.date === diary.date)
-                   
-                    diariesInRealm[indexOfDiary].status = status
-                    diariesInRealm[indexOfDiary].finished = finished
-                    
-                    realm.write(() => {
-                        classesInRealm[indexOfClass].diaries = JSON.stringify(diariesInRealm)
-                    })
-                })
-            })
-        } catch (error) {
-            console.log('Erro in updateStatusOfDiariesInRealm')
-            console.log(error)
-        }        
-    }
-
-    async function updateStatusOfDiariesOfContentsInRealm(classesWithDiariesOfContentsForUpdate, status, finished){
-        try {
-            const realm = await getRealm()     
-            console.log(classesWithDiariesOfContentsForUpdate)
-            const classesInRealm = realm.objects('Classes')    
-            classesWithDiariesOfContentsForUpdate.map(classe => {                    
-                const indexOfClass = classesInRealm.findIndex(val => val.id === classe.classId)         
-                const diariesOfContentsInRealm = JSON.parse(classesInRealm[indexOfClass].diariesOfContent)
-               
-                classe.diariesOfContents.map(diary => {
-                    console.log(diary)
-                    const indexOfDiary = diariesOfContentsInRealm.findIndex(val => val.date === diary.date)
-                    console.log(indexOfDiary)
-                    console.log(diariesOfContentsInRealm[indexOfDiary].status)
-                    diariesOfContentsInRealm[indexOfDiary].status = status
-                    diariesOfContentsInRealm[indexOfDiary].finished = finished
-                    
-                    realm.write(() => {
-                        classesInRealm[indexOfClass].diariesOfContent = JSON.stringify(diariesOfContentsInRealm)
-                    })
-                })
-            })
-        } catch (error) {
-            console.log('Erro in updateStatusOfDiariesOfContentsInRealm')
-            console.log(error)
-        }        
-    }
-
-    async function getDiariesWithStatusSavedInSigEducaInMongo(){
-        try {
-            const {data} = await api.get('/diaries/saveInSigEduca')
-            return data
-        } catch (error) {
-            console.log('Erro in getDiariesWithStatusSavedInSigEducaInMongo')
-            console.log(error)
-        }
-    }
-
-    async function getDiariesOfContentsWithStatusSavedInSigEducaInMongo(){
-        try {
-            const {data} = await api.get('/diariesOfContents/savedInSigEduca')
-            return data
-        } catch (error) {
-            console.log('Error in getDiariesOfContentsWithStatusSavedInSigEducaInMongo')
-            console.log(error)
-        }
-    }   
-
-    async function setTagFinishedWithTrueOfDiaries(classesWithDiariesForUpdate){
-        try {
-            await api.put('/diaries/setFinishedWithTrue', {
-                diariesForUpdate: classesWithDiariesForUpdate
-            })
-        } catch (error) {
-            console.log('Erro in setTagFinishedWithTrueOfDiaries')
-            console.log(error)
-        }
-    }
-
-    async function setTagFinishedWithTrueOfDiariesOfContents(classesWithDiariesOfContentsForUpdate){
-        try {
-            await api.put('/diariesOfContents/setFinishedWithTrue', {
-                diariesOfContentsForUpdate: classesWithDiariesOfContentsForUpdate
-            })
-        } catch (error) {
-            console.log('Erro in setTagFinishedWithTrueOfDiariesOfContents')
-            console.log(error)
-        }
-    }
-
-    async function syncData(){
-        console.log('Synchronizing data')
-        try {   
-            const diariesForSaveInRealm = await getDiariesWithStatusSavedInSigEducaInMongo()         
-            if(diariesForSaveInRealm.length !== 0){
-                console.log('Exist diaries for save in realm')
-                await updateStatusOfDiariesInRealm(diariesForSaveInRealm, 'savedInSigEduca', true) 
-                await setTagFinishedWithTrueOfDiaries(diariesForSaveInRealm)
-            }
-                            
-            const diariesForSaveInMongo = await getDiariesForSaveInMongo()
-            if(diariesForSaveInMongo.length !== 0){
-                console.log('Exist diaries for save in mongo') 
-                const data = await storeDiariesInMongo(diariesForSaveInMongo)                                  
-                await updateStatusOfDiariesInRealm(data.diariesSaved, 'savedInMongo', false)
-            } 
-            
-            const diariesOfContentsForSaveInRealm = await getDiariesOfContentsWithStatusSavedInSigEducaInMongo()
-            if(diariesOfContentsForSaveInRealm.length !== 0){
-                console.log('Exist diariesOfContents for save in realm')
-                await updateStatusOfDiariesOfContentsInRealm(diariesOfContentsForSaveInRealm, 'savedInSigEduca', true)
-                await setTagFinishedWithTrueOfDiariesOfContents(diariesOfContentsForSaveInRealm)
-            }
-
-            const diariesOfContentsForSaveInMongo = await getDiariesOfContentsForSaveInMongo()
-            if(diariesOfContentsForSaveInMongo.length !== 0){
-                console.log('Exist diariesOfContents for save in mongo')
-                const data = await storeDiariesOfContentsInMongo(diariesOfContentsForSaveInMongo)
-                await updateStatusOfDiariesOfContentsInRealm(data.diariesOfContentsSaved, 'savedInMongo', false)
-            }
-
-        } catch (error) {
-            console.log('Erro in syncData')
-            console.log(error)
-        }
-    }
-
     return (        
         <Container >
             {!netInfo.isInternetReachable &&
-                <InfoInHeader/>
+                <InfoInHeader color={colors.danger}>Você está offline, os dados serão salvos quando conectar</InfoInHeader>
             } 
             <ContainerScroll>     
                 <ContainerText style={{elevation: 5}}>
                     <HeaderText ellipsizeMode="tail" numberOfLines={1}>Olá {user},</HeaderText>
                     <HeaderText ellipsizeMode="tail" numberOfLines={1}> o que deseja fazer hoje?</HeaderText>
                     <HeaderText>Tipo {netInfo.type}</HeaderText>
-                    <HeaderText>Tem conexão? {netInfo.isInternetReachable.toString()}</HeaderText>
+                    <HeaderText>Tem conexão? {netInfo.isInternetReachable.toString()}</HeaderText>                  
                 </ContainerText>  
                      
                 <ContainerBtns  style={{elevation: 1}}>                   

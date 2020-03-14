@@ -5,7 +5,9 @@ import colors from '../../Pages/colors'
 export const Container = styled.View`
   flex-direction: row;  
   height: 30px;
-  background-color: ${colors.danger};
+  align-items: center;
+  justify-content: center;
+  background-color: ${props => (props.color ? props.color : colors.primary)};
   padding: 5px;
 `;
 

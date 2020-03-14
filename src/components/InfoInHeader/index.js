@@ -2,11 +2,11 @@ import React from 'react'
 
 import { Container, Text } from './styles';
 
-export default function InfoInHeader() {
+export default function InfoInHeader({children, color}) {
   return (
-    <Container>
+    <Container color={color}>
         <Text>
-            Você está offline, os dados serão salvos quando conectar
+            {children}
         </Text>
     </Container>
   );

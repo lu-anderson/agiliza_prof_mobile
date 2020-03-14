@@ -1,4 +1,8 @@
-import React, {useEffect, useState} from 'react'
+import React, {useEffect, useState, useCallback} from 'react'
+import { useNetInfo } from "@react-native-community/netinfo"
+import { RefreshControl} from 'react-native'
+
+import Sync from '../../utils/Sync'
 import getRealm from '../../offline/realm'
 
 import  * as util from '../../utils'
@@ -18,6 +22,8 @@ import {
     ContainerHeaderText,
     DateText
 } from './styles'
+
+import InfoInHeader from '../../components/InfoInHeader'
 
 import colors from '../colors'
 
@@ -42,9 +48,17 @@ function setColorStatus(status){
 }
 
 const ShowResume = (props) => {
+    const netinfo = useNetInfo()
     const idClass = props.navigation.getParam('classId')
     const [diaries, setDiaries] = useState([])
     const [diariesOfContent, setDiariesOfContent] = useState([])
+    const [refreshing, setRefreshing] = useState(false)
+
+    const onRefresh = useCallback(() => {
+        setRefreshing(true)
+
+        Sync().then(() => getDiariesInRealm().then(() => setRefreshing(false)))
+    }, [refreshing])
 
     function setDiariesWithDateStringToDateObject(diaries) {
         let newDiaries = []
@@ -60,38 +74,44 @@ const ShowResume = (props) => {
         return newDiaries
     }
 
-    useEffect(() => {
-        //console.log(diariesOfContent)
-    }, [diariesOfContent])
+    async function getDiariesInRealm(){
+        console.log('getDiariesInRealm')
+        const realm = await getRealm()
+        
+        const classes = realm.objectForPrimaryKey('Classes', idClass)
+
+        const diariesInRealm = JSON.parse(classes.diaries)
+        
+        const diariesOfContentInRealm = JSON.parse(classes.diariesOfContent)
+
+        const diariesWithDateObject = setDiariesWithDateStringToDateObject(diariesInRealm)
+        const diariesOfContentWithDateObject = setDiariesWithDateStringToDateObject(diariesOfContentInRealm)  
+
+        sortDates(diariesWithDateObject)
+        sortDates(diariesOfContentWithDateObject)            
+        
+
+        setDiariesOfContent(diariesOfContentWithDateObject)
+        setDiaries(diariesWithDateObject)
+    }
 
     useEffect(() => {
-        async function getDiariesInRealm(){
-            const realm = await getRealm()
-
-            
-            const classes = realm.objectForPrimaryKey('Classes', idClass)
-
-            const diariesInRealm = JSON.parse(classes.diaries)
-            
-            const diariesOfContentInRealm = JSON.parse(classes.diariesOfContent)
-
-            const diariesWithDateObject = setDiariesWithDateStringToDateObject(diariesInRealm)
-            const diariesOfContentWithDateObject = setDiariesWithDateStringToDateObject(diariesOfContentInRealm)  
-
-            sortDates(diariesWithDateObject)
-            sortDates(diariesOfContentWithDateObject)            
-            
-
-            setDiariesOfContent(diariesOfContentWithDateObject)
-            setDiaries(diariesWithDateObject)
-        }
-
-        getDiariesInRealm()
+        (async function callGetDiariesInRealm(){
+            await Sync()
+            await getDiariesInRealm()
+        })()
     }, [])
 
 
     return(
-        <Container> 
+        <Container
+            refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+        >   
+            {!netinfo.isInternetReachable &&
+                <InfoInHeader color={colors.danger}>Você está offline, ative a internet para atualizar os dados</InfoInHeader>               
+            }
             <ContainerSubTitle>
                 <AlignRowSubTitle>
                     <ViewSubTitle>
